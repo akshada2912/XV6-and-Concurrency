@@ -1,0 +1,184 @@
+- syscall add everything to sysfile.c, syscall.c, user.h, usys.pl, proc.h
+
+
+void scheduler(void)
+{
+  struct proc *p;
+  struct cpu *c = mycpu();
+
+  c->proc = 0;
+  for (;;)
+  {
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
+    int max = 0;
+    struct proc *p2 = myproc();
+    struct proc *p3 = myproc();
+    struct proc* arr[NPROC];
+    int arrind=0;
+    for (p = proc; p < &proc[NPROC]; p++)
+    {
+      acquire(&p->lock);
+      if (p->state == RUNNABLE)
+      {
+        int a = (3 * p->runtime - p->stime - p->wtime) * 50;
+        double b = a / (p->runtime + p->stime + p->wtime + 1);
+        int c = (int)b;
+        p->rbi = c > 0 ? c : 0;
+       // printf("#%d %d\n",p->pid,p->sp);
+        p->dp = (p->sp + p->rbi) < 100 ? (p->sp + p->rbi) : 100;
+        // printf("%d ",p->dp);
+        if (p->dp > max)
+        {
+
+          max = p->dp;
+          p2 = p;
+          // if(p==0)
+          // printf("hii");
+          // if(p2==0)
+          // printf("here");
+        }
+      }
+      release(&p->lock);
+    }
+    int count = 0;
+    for (p = proc; p < &proc[NPROC]; p++)
+    {
+      acquire(&p->lock);
+      if (p->state == RUNNABLE)
+      {
+        // acquire(&p2->lock);
+        if (p->dp == max && p != p2)
+        {
+          count++;
+          p3 = p;
+          // printf("%d",p3);
+        }
+      }
+      release(&p->lock);
+    }
+    
+    if (p2 != 0)
+    {
+      if (count == 0)
+      {
+        acquire(&p2->lock);
+        if (p2->state == RUNNABLE)
+        {
+          // Switch to chosen process.  It is the process's job
+          // to release its lock and then reacquire it
+          // before jumping back to us.
+          p2->state = RUNNING;
+          c->proc = p2;
+          swtch(&c->context, &p2->context);
+
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->proc = 0;
+        }
+        release(&p2->lock);
+      }
+      else
+      {
+        int p2no = 0, p3no = 0, p2s = 0, p3s = 0;
+        acquire(&p2->lock);
+        p2no = p2->no_scheduled;
+        p2s = p2->start_time;
+        release(&p2->lock);
+        acquire(&p3->lock);
+        p3no = p3->no_scheduled;
+        p3s = p3->start_time;
+        release(&p3->lock);
+
+        if (p2no < p3no) // run process with less no of scheduled time
+        {
+          acquire(&p2->lock);
+          if (p2->state == RUNNABLE)
+          {
+            p2->state = RUNNING;
+            c->proc = p2;
+            swtch(&c->context, &p2->context);
+            c->proc = 0;
+          }
+          release(&p2->lock);
+        }
+        else if (p3no < p2no)
+        {
+          acquire(&p3->lock);
+          if (p3->state == RUNNABLE)
+          {
+            p3->state = RUNNING;
+            c->proc = p3;
+            swtch(&c->context, &p3->context);
+            c->proc = 0;
+          }
+          release(&p3->lock);
+        }
+        else
+        {
+          if (p2s < p3s) // lower start time scheduled higher
+          {
+            acquire(&p2->lock);
+            if (p2->state == RUNNABLE)
+            {
+              p2->state = RUNNING;
+              c->proc = p2;
+              swtch(&c->context, &p2->context);
+              c->proc = 0;
+            }
+            release(&p2->lock);
+          }
+          else
+          {
+            acquire(&p3->lock);
+            if (p3->state == RUNNABLE)
+            {
+              p3->state = RUNNING;
+              c->proc = p3;
+              swtch(&c->context, &p3->context);
+              c->proc = 0;
+            }
+            release(&p3->lock);
+          }
+        }
+      }
+    }
+    else if (p3 != 0)
+    {
+      acquire(&p3->lock);
+      if (p3->state == RUNNABLE)
+      {
+        p3->state = RUNNING;
+        c->proc = p3;
+        swtch(&c->context, &p3->context);
+        c->proc = 0;
+      }
+      release(&p3->lock);
+    }
+    else
+    {
+    } 
+    
+    
+  //  if(p3==0)
+  //  {}
+  //   for (p = proc; p < &proc[NPROC]; p++)
+  //   {
+  //     acquire(&p->lock);
+  //     if (p->state == RUNNABLE)
+  //     {
+  //       // Switch to chosen process.  It is the process's job
+  //       // to release its lock and then reacquire it
+  //       // before jumping back to us.
+  //       p->state = RUNNING;
+  //       c->proc = p;
+  //       swtch(&c->context, &p->context);
+
+  //       // Process is done running for now.
+  //       // It should have changed its p->state before coming back.
+  //       c->proc = 0;
+  //     }
+  //     release(&p->lock);
+  //   }
+  }
+}

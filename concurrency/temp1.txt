@@ -1,0 +1,13 @@
+2 2 3
+Espresso 3
+Cappuccino 10
+1 Cappuccino 0 15
+2 Espresso 3 6
+3 Espresso 3 5
+
+1 2 3
+Espresso 3
+Cappuccino 7
+1 Cappuccino 0 15
+2 Espresso 0 5
+3 Espresso 0 10
